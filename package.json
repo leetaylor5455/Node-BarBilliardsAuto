@@ -1,0 +1,15 @@
+{
+  "name": "bar-billiards",
+  "version": "1.0.0",
+  "description": "Websocket for bar billiards auto scoring table and app",
+  "main": "index.js",
+  "dependencies": {
+    "ws": "^7.4.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Lee Taylor",
+  "license": "ISC"
+}
