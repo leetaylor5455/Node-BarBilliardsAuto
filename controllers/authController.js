@@ -7,7 +7,7 @@ exports.login_post = async (req, res) => {
     const { error } = validate(req.body);
     if (error) return res.status(400).send(error.details[0].message);
 
-    // Find name
+    // Find table
     let table = await Table.findOne({ name: req.body.name });
     if (!table) return res.status(400).send('Invalid table or password');
 

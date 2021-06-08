@@ -1,7 +1,9 @@
 const WebSocket = require('ws');
 
-module.exports = function(server) {
-    const wss = new WebSocket.Server({ server:server });
+let wss;
+
+const WSServer = (server) => {
+    wss = new WebSocket.Server({ server:server });
 
     wss.on('connection', function connection(ws) {
 
@@ -14,3 +16,12 @@ module.exports = function(server) {
         });
     });
 }
+
+const sendJSON = (json) => {
+  wss.on('open', function open(ws) {
+    ws.send(JSON.stringify(json));
+  });
+}
+
+exports.WSServer = WSServer;
+exports.sendJSON = sendJSON;

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const breakSchema = new mongoose.Schema({
-    score: Number,
+    score: { type: Number, default: 0 },
     isFoul: { type: Boolean, default: false }
 });
 

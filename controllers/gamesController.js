@@ -3,14 +3,15 @@ const Game = require('../models/game');
 const { Player } = require('../models/player');
 const { Break } = require('../models/break');
 const Joi = require('joi');
+const { sendJSON } = require('../startup/wss');
+const bcrypt = require('bcrypt');
 
 exports.newGame_post = async (req, res) => {
     const table = await Table.findOne({ _id: req.table._id });
-
-    let game;
+    if (!table) return res.status(400).send('Invalid table ID');
 
     // Check if there is an existing game that isn't finished
-    game = await Game.findOne({ table: { _id: table._id, name: table.name }, isComplete: false });
+    let game = await Game.findOne({ table: { _id: table._id, name: table.name }, isComplete: false });
 
     // If existing game, sent its id
     if (game) return res.send(game);
@@ -109,8 +110,51 @@ exports.nextPlayer_post = async (req, res) => {
 
     game.players = players;
     await game.save();
+    sendJSON(game);
     return res.send(game);
 
+}
+
+exports.addPoints_post = async (req, res) => {
+    // Validate request
+    const { error } = validateAddPoints(req.body);
+    if (error) return res.status(400).send('Invalid request.');
+
+    // Find table
+    let table = await Table.findOne({ _id: req.body.tableId });
+    if (!table) return res.status(400).send('Invalid table');
+
+    // Compare password
+    const validPassword = await bcrypt.compare(req.body.password, table.password);
+    if (!validPassword) return res.status(400).send('Invalid password');
+
+    // Find current game
+    let game = await Game.findOne({ table: { _id: table._id, name: table.name }, isComplete: false });
+    if (!game) return res.status(400).send('No game found.')
+
+    // Find current player
+    for (var i = 0; i < game.players.length; i++) {
+        if (game.players[i].isCurrent) {
+            game.players[i].breaks[0].score += req.body.points; // Add points in request
+        }
+    }
+
+    await game.save();
+    return res.status(200).send(game.players);
+
+}
+
+exports.endGame_post = async (req, res) => {
+    // Validate request
+    const { error } = validateEndGame(req.body);
+    if (error) return res.status(400).send('Invalid request.');
+
+    let game = await Game.findOne({ _id: req.gameId });
+    if (!game) return res.status(400).send('Invalid Game ID.');
+
+    game.isComplete = true;
+    await game.save();
+    return res.status(200).send('Game finished.');
 }
 
 function validateAddPlayers(req) {
@@ -128,6 +172,24 @@ function validateNextPlayer(req) {
         isFoulBreak: Joi.bool(),
         isSafeBreak: Joi.bool(),
         isBlackPin: Joi.bool()
+    });
+
+    return schema.validate(req);
+}
+
+function validateAddPoints(req) {
+    const schema = Joi.object({
+        tableId: Joi.string().required(),
+        password: Joi.string().required(),
+        points: Joi.number().min(10).max(400).required()
+    });
+
+    return schema.validate(req);
+}
+
+function validateEndGame(req) {
+    const schema = Joi.object({
+        gameId: Joi.string().required()
     });
 
     return schema.validate(req);

@@ -4,7 +4,8 @@ const server = require('http').createServer(app);
 
 require('./startup/db')();
 require('./startup/routes')(app);
-require('./startup/wss')(server);
+const { WSServer } = require('./startup/wss');
+WSServer(server);
 
 
 
