@@ -1,0 +1,4 @@
+{
+    "db": "mongodb://localhost/barbilliards",
+    "jwtPrivateKey": "foulbreak"
+}
