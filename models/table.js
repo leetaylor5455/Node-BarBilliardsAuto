@@ -4,7 +4,8 @@ const config = require('config');
 
 const tableSchema = new mongoose.Schema({
     name: String,
-    password: String
+    password: String,
+    imgName: String
 });
 
 tableSchema.methods.generateAuthToken = function() {

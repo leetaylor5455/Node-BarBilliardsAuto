@@ -3,54 +3,35 @@ const Game = require('../models/game');
 const { Player } = require('../models/player');
 const { Break } = require('../models/break');
 const Joi = require('joi');
-const { sendJSON } = require('../startup/wss');
 const bcrypt = require('bcrypt');
 
-exports.newGame_post = async (req, res) => {
-    const table = await Table.findOne({ _id: req.table._id });
+
+exports.startGame_post = async (req, res) => {
+    // Validate request
+    const { error } = validateStartGame(req.body);
+    if (error) return res.status(400).send(error.message);
+
+    // Find table
+    const table = await Table.findOne({ _id: req.table._id }); // extracted from jwt
     if (!table) return res.status(400).send('Invalid table ID');
 
-    // Check if there is an existing game that isn't finished
+    // Check if game in progress exists on DB
     let game = await Game.findOne({ table: { _id: table._id, name: table.name }, isComplete: false });
+    if (game) return res.status(400).send('Game already in progress on given table.');
 
-    // If existing game, sent its id
-    if (game) return res.send(game);
-
-    // If no existing game, create blank game on current table
     game = new Game({
         table: {
             name: table.name,
             _id: table._id
         }
     });
-    game = await game.save();
-    res.send(game._id);
 
-}
-
-exports.addPlayers_post = async (req, res) => {
-    // Validate request
-    const { error } = validateAddPlayers(req.body);
-    if (error) return res.status(400).send('Invalid game.');
-
-    // Find game
-    let game = await Game.findOne({ _id: req.body.gameId });
-    if (!game) return res.status(400).send('Invalid game ID.');
-
-    if (game.players.length > 0) return res.status(400).send('Players already added.');
-
-    for (var i = 0; i < req.body.players.length; i++) {
+    for (var i = 0; i < req.body.length; i++) {
         // See if player exists on database
-        let existingPlayer = await Player.findOne({ name: req.body.players[i].name });
+        let player = await Player.findOne({ _id: req.body[i].playerId });
+        if (!player) return res.status(400).send('Player with given ID not found.');
 
-        if (existingPlayer) {
-            game.players.push(existingPlayer);
-        } else {
-            // If not, add new record (without breaks array since its stored as a static 'user')
-            let newPlayer = new Player({ name: req.body.players[i].name });
-            await newPlayer.save();
-            game.players.push(newPlayer);
-        }
+        game.players.push(player);
 
         // Starting attributes
         game.players[i].breaks = [new Break()];
@@ -62,7 +43,7 @@ exports.addPlayers_post = async (req, res) => {
     await game.markModified('players');
     game = await game.save();
 
-    return res.send(game);
+    return res.send(game._id);
 }
 
 exports.nextPlayer_post = async (req, res) => {
@@ -110,7 +91,6 @@ exports.nextPlayer_post = async (req, res) => {
 
     game.players = players;
     await game.save();
-    sendJSON(game);
     return res.send(game);
 
 }
@@ -131,6 +111,8 @@ exports.addPoints_post = async (req, res) => {
     // Find current game
     let game = await Game.findOne({ table: { _id: table._id, name: table.name }, isComplete: false });
     if (!game) return res.status(400).send('No game found.')
+
+    if (game.isComplete) return res.status(400).send('Game is already finished.');
 
     // Find current player
     for (var i = 0; i < game.players.length; i++) {
@@ -157,11 +139,9 @@ exports.endGame_post = async (req, res) => {
     return res.status(200).send('Game finished.');
 }
 
-function validateAddPlayers(req) {
-    const schema = Joi.object({
-        gameId: Joi.string().required(),
-        players: Joi.array().items(Joi.object({ name: Joi.string() })).required()
-    });
+function validateStartGame(req) {
+
+    const schema = Joi.array().items(Joi.object({ playerId: Joi.string() })).required()
 
     return schema.validate(req);
 }

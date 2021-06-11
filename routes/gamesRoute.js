@@ -4,22 +4,14 @@ const auth = require('../middleware/authMiddleware');
 
 const gamesController = require('../controllers/gamesController');
 
-// Open or join game
+// Start a new game
 
 // Required schema:
-// {}
+// [
+//     { playerId: String REQUIRED }
+// ]
 
-router.post('/', auth, gamesController.newGame_post);
-
-// Add players
-
-// Required schema:
-// {
-//     "gameId": String, REQUIRED
-//     ["name": String]  
-// }
-
-router.post('/addplayers', auth, gamesController.addPlayers_post);
+router.post('/', auth, gamesController.startGame_post);
 
 // Next player
 // Required schema:
