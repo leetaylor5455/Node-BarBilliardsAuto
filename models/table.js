@@ -14,9 +14,5 @@ tableSchema.methods.generateAuthToken = function() {
 
 const Table = mongoose.model('Table', tableSchema);
 
-async function deleteAll() {
-    await Table.deleteMany({});
-}
-
 exports.Table = Table;
 exports.tableSchema = tableSchema;

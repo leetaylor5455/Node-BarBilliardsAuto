@@ -34,7 +34,6 @@ exports.deletePlayer_delete = async(req, res) => {
     const { error } = validateDeletePlayer(req.body);
     if (error) return res.status(400).send(error.message);
 
-    console.log(req.body.playerId);
     let player = await Player.findOne({ _id: req.body.playerId });
     if (!player) return res.status(400).send('Player with given ID not found.');
 

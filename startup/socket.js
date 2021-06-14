@@ -15,12 +15,17 @@ exports.socket = function(server) {
         console.log('New client connection.');
 
         const gameId = socket.handshake.query.data;
+        let iteration = -1;
 
         // Routine polling of db to get data
         if (interval) {
             clearInterval(interval);
         }
-        interval = setInterval(() => getGameDataAndEmit(socket, gameId), 1000);
+        interval = setInterval(async () => { 
+            if (iteration != -2) { // code for game complete
+                iteration = await getGameDataAndEmit(socket, gameId, iteration);
+            }
+        }, 300);
         socket.on('disconnect', () => {
             console.log('Client disconnected.');
             clearInterval(interval);
@@ -28,10 +33,23 @@ exports.socket = function(server) {
 
     });
 
-    const getGameDataAndEmit = async (socket, gameId) => {
+    const getGameDataAndEmit = async (socket, gameId, iteration) => {
         const game = await Game.findById(gameId);
 
-        if (!game) return socket.emit('GameData', 'gameId invalid.');        
-        return socket.emit('GameData', game);        
+        if (!game) return socket.emit('GameData', 'gameId invalid.');
+
+        if (game.isComplete) { 
+            socket.emit('GameData', { isComplete: true, gameId: game._id });
+            return -2;
+        }
+        
+        if (game.iteration > iteration) {
+            socket.emit('GameData', game);
+            return game.iteration;
+        }
+
+        return iteration;
+        
+
     }
 }

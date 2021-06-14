@@ -6,6 +6,22 @@ const Joi = require('joi');
 const bcrypt = require('bcrypt');
 
 
+exports.getGameData_post = async (req, res) => {
+    // Validate request
+    const { error } = validateGameIdOnly(req.body);
+    if (error) return res.status(400).send(error.message);
+
+    let game = await Game.findById(req.body.gameId);
+    if (!game) return res.status(400).send('Game with given ID not found');
+
+    game.chartData = await game.generateChartData(game);
+    await game.markModified('chartData');
+    game = await game.save();
+
+    return res.status(200).send(game);
+}
+
+
 exports.startGame_post = async (req, res) => {
     // Validate request
     const { error } = validateStartGame(req.body);
@@ -39,8 +55,12 @@ exports.startGame_post = async (req, res) => {
         game.players[i].score = 0;
     }
 
+    
     game.players[0].isCurrent = true;
     await game.markModified('players');
+
+    game.chartData = await game.generateChartData(game);
+    await game.markModified('chartData');
     game = await game.save();
 
     return res.send(game._id);
@@ -54,6 +74,8 @@ exports.nextPlayer_post = async (req, res) => {
     // Find game
     let game = await Game.findOne({ _id: req.body.gameId });
     if (!game) return res.status(400).send('Invalid game ID.');
+
+    if (game.isComplete) return res.status(400).send('Game is already finished.');
 
     let players = game.players;
 
@@ -88,8 +110,10 @@ exports.nextPlayer_post = async (req, res) => {
             }
         }
     }
-
     game.players = players;
+    game.iteration += 1;
+    game.chartData = await game.generateChartData(game);
+    await game.markModified('chartData');
     await game.save();
     return res.send(game);
 
@@ -121,19 +145,58 @@ exports.addPoints_post = async (req, res) => {
         }
     }
 
+
+
+    game.iteration += 1;
+    game.chartData = await game.generateChartData(game);
+    await game.markModified('chartData');
     await game.save();
-    return res.status(200).send(game.players);
+    return res.status(200).send(game);
 
 }
 
 exports.endGame_post = async (req, res) => {
     // Validate request
-    const { error } = validateEndGame(req.body);
+    const { error } = validateGameIdOnly(req.body);
     if (error) return res.status(400).send('Invalid request.');
 
-    let game = await Game.findOne({ _id: req.gameId });
+    let game = await Game.findOne({ _id: req.body.gameId });
     if (!game) return res.status(400).send('Invalid Game ID.');
 
+    // Populate summary values
+    let players = game.players
+
+
+    for (var i = 0; i < players.length; i++) {
+        players[i].foulBreaks = 0;
+        players[i].potentialScore = 0;
+        for (var j = 0; j < players[i].breaks.length; j++) {
+            players[i].potentialScore += players[i].breaks[j].score;
+            if (players[i].breaks[j].isFoul) {
+                players[i].foulBreaks++
+            };
+        }
+    }
+
+    // Sort player array
+    
+    let sorted = false;
+    while (!sorted) {
+        sorted = true;
+        for (var i = 1; i < players.length; i++) {
+            if (players[i].score > players[i-1].score) { // if current player's score is higher than player above
+                tempPlayer = players[i];
+                players[i] = players[i-1]; // swap positions
+                players[i-1] = tempPlayer;
+                sorted = false;
+            }
+        }
+    }
+
+    game.chartData = game.generateChartData();
+    game.markModified('chartData');
+    game.players = players;
+    game.markModified('players');
     game.isComplete = true;
     await game.save();
     return res.status(200).send('Game finished.');
@@ -167,7 +230,7 @@ function validateAddPoints(req) {
     return schema.validate(req);
 }
 
-function validateEndGame(req) {
+function validateGameIdOnly(req) {
     const schema = Joi.object({
         gameId: Joi.string().required()
     });
