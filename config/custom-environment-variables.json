@@ -1,0 +1,4 @@
+{
+    "db": "barbilliards_db",
+    "jwtPrivateKey": "barbilliards_jwtPrivateKey"
+}

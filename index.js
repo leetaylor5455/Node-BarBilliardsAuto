@@ -11,6 +11,7 @@ const { socket } = require('./startup/socket');
 socket(server);
 require('./startup/prod')(app);
 
+console.log(`Environment: ${process.env.NODE_ENV}`);
 
-
-server.listen(8080, () => console.log('Listening on port 8080'));
+const port = process.env.PORT || 8080
+server.listen(port, () => console.log(`Listening on port ${port}`));
