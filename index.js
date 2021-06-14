@@ -9,6 +9,7 @@ require('./startup/db')();
 require('./startup/routes')(app);
 const { socket } = require('./startup/socket');
 socket(server);
+require('./startup/prod')(app);
 
 
 
